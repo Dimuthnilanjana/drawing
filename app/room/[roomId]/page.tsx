@@ -10,7 +10,17 @@ import OnlineUsers from "@/components/online-users"
 import NicknameModal from "@/components/nickname-modal"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Copy, Check } from "lucide-react"
-import { useRoomManager } from "@/hooks/use-room-manager"
+import { useRealTimeRoom } from "@/hooks/use-realtime-room"
+
+interface LineData {
+  id: string
+  points: { x: number; y: number }[]
+  color: string
+  width: number
+  effect?: "sparkle" | "rainbow" | "normal"
+  userId?: string
+  userInfo?: { nickname: string; emoji: string }
+}
 
 export default function RoomPage() {
   const params = useParams()
@@ -21,10 +31,10 @@ export default function RoomPage() {
   const [showNicknameModal, setShowNicknameModal] = useState(true)
   const [userInfo, setUserInfo] = useState<{ nickname: string; emoji: string } | null>(null)
 
-  const { connectedUsers, userCursors, joinRoom, leaveRoom, updateUserInfo, broadcastCursor } = useRoomManager(roomId)
+  const { connectedUsers, userCursors, remoteLines, joinRoom, leaveRoom, broadcastCursor, broadcastDrawing } =
+    useRealTimeRoom(roomId)
 
   useEffect(() => {
-    // Simulate joining room
     const timer = setTimeout(() => {
       setIsLoading(false)
     }, 2000)
@@ -36,10 +46,7 @@ export default function RoomPage() {
     const newUserInfo = { nickname, emoji }
     setUserInfo(newUserInfo)
     setShowNicknameModal(false)
-
-    // Join room with user info
     joinRoom(newUserInfo)
-    updateUserInfo(newUserInfo)
   }
 
   const copyRoomLink = async () => {
@@ -52,6 +59,16 @@ export default function RoomPage() {
   const handleLeaveRoom = () => {
     leaveRoom()
     router.push("/")
+  }
+
+  const handleCursorMove = (x: number, y: number) => {
+    if (userInfo) {
+      broadcastCursor(x, y, userInfo)
+    }
+  }
+
+  const handleDrawingUpdate = (lineData: LineData) => {
+    broadcastDrawing(lineData)
   }
 
   if (isLoading) {
@@ -102,8 +119,10 @@ export default function RoomPage() {
         <DrawingCanvas
           roomId={roomId}
           userCursors={userCursors}
-          onCursorMove={broadcastCursor}
+          onCursorMove={handleCursorMove}
+          onDrawingUpdate={handleDrawingUpdate}
           currentUser={userInfo}
+          remoteLines={remoteLines}
         />
         <EmojiReactions />
         <RoomControls />

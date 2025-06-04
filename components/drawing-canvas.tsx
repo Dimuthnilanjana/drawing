@@ -8,7 +8,9 @@ interface DrawingCanvasProps {
   roomId: string
   userCursors: UserCursor[]
   onCursorMove: (x: number, y: number) => void
+  onDrawingUpdate: (lineData: LineData) => void
   currentUser: { nickname: string; emoji: string } | null
+  remoteLines: LineData[]
 }
 
 interface Point {
@@ -44,17 +46,23 @@ interface UserCursor {
   lastSeen: number
 }
 
-export default function DrawingCanvas({ roomId, userCursors, onCursorMove, currentUser }: DrawingCanvasProps) {
+export default function DrawingCanvas({
+  roomId,
+  userCursors,
+  onCursorMove,
+  onDrawingUpdate,
+  currentUser,
+  remoteLines,
+}: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
-  const [lines, setLines] = useState<LineData[]>([])
+  const [localLines, setLocalLines] = useState<LineData[]>([])
   const [currentLine, setCurrentLine] = useState<LineData | null>(null)
   const [sparkles, setSparkles] = useState<Sparkle[]>([])
   const [brushColor, setBrushColor] = useState("#000000")
   const [brushSize, setBrushSize] = useState(5)
   const [brushEffect, setBrushEffect] = useState<"normal" | "sparkle" | "rainbow">("normal")
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const { playSound } = useSound()
 
   // Handle window resize
@@ -71,7 +79,7 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
     return () => window.removeEventListener("resize", updateCanvasSize)
   }, [])
 
-  // Animation frame for sparkles and cursor updates
+  // Animation frame for sparkles
   useEffect(() => {
     let animationId: number
 
@@ -104,9 +112,13 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Draw all lines
-    const allLines = currentLine ? [...lines, currentLine] : lines
+    // Combine local and remote lines
+    const allLines = [...localLines, ...remoteLines]
+    if (currentLine) {
+      allLines.push(currentLine)
+    }
 
+    // Draw all lines
     allLines.forEach((line) => {
       if (line.points.length < 2) return
 
@@ -120,7 +132,6 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
       ctx.moveTo(line.points[0].x, line.points[0].y)
       for (let i = 1; i < line.points.length; i++) {
         if (line.effect === "rainbow") {
-          // Change color for rainbow effect
           const colors = [
             "#ff0000",
             "#ff8000",
@@ -155,15 +166,15 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
       ctx.restore()
     })
 
-    // Draw user cursors
+    // Draw user cursors (filter out old ones)
     const now = Date.now()
     userCursors.forEach((cursor) => {
-      // Only show cursors that are recent (within 5 seconds)
-      if (now - cursor.lastSeen < 5000) {
+      if (now - cursor.lastSeen < 10000) {
+        // Show cursors for 10 seconds
         drawUserCursor(ctx, cursor)
       }
     })
-  }, [lines, currentLine, sparkles, userCursors])
+  }, [localLines, remoteLines, currentLine, sparkles, userCursors])
 
   const drawUserCursor = (ctx: CanvasRenderingContext2D, cursor: UserCursor) => {
     ctx.save()
@@ -189,12 +200,19 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
 
     // Background bubble
     ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
-    ctx.roundRect(cursor.x + 15, cursor.y - 25, textWidth + 12, 20, 10)
+    const bubbleX = cursor.x + 15
+    const bubbleY = cursor.y - 25
+    const bubbleWidth = textWidth + 12
+    const bubbleHeight = 20
+
+    // Simple rounded rectangle
+    ctx.beginPath()
+    ctx.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 10)
     ctx.fill()
 
     // Text
     ctx.fillStyle = "white"
-    ctx.fillText(text, cursor.x + 21, cursor.y - 10)
+    ctx.fillText(text, bubbleX + 6, bubbleY + 14)
 
     ctx.restore()
   }
@@ -204,14 +222,26 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
     redrawCanvas()
   }, [redrawCanvas])
 
-  const getMousePos = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Get position from mouse or touch event
+  const getEventPos = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
 
     const rect = canvas.getBoundingClientRect()
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+
+    if ("touches" in e) {
+      // Touch event
+      const touch = e.touches[0] || e.changedTouches[0]
+      return {
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top,
+      }
+    } else {
+      // Mouse event
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      }
     }
   }, [])
 
@@ -227,38 +257,14 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
     setSparkles((prev) => [...prev, ...newSparkles])
   }, [])
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const pos = getMousePos(e)
-      setMousePos(pos)
-
-      // Broadcast cursor position
-      onCursorMove(pos.x, pos.y)
-
-      if (!isDrawing || !currentLine) return
-
-      setCurrentLine((prev) => {
-        if (!prev) return null
-        return {
-          ...prev,
-          points: [...prev.points, pos],
-        }
-      })
-
-      if (brushEffect === "sparkle" && Math.random() > 0.7) {
-        addSparkles(pos.x, pos.y)
-      }
-    },
-    [isDrawing, currentLine, getMousePos, brushEffect, addSparkles, onCursorMove],
-  )
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const pos = getMousePos(e)
+  const startDrawing = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      e.preventDefault()
+      const pos = getEventPos(e)
       setIsDrawing(true)
 
       const newLine: LineData = {
-        id: `${Date.now()}`,
+        id: `${Date.now()}-${Math.random()}`,
         points: [pos],
         color: brushColor,
         width: brushSize,
@@ -274,26 +280,58 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
         addSparkles(pos.x, pos.y)
       }
     },
-    [brushColor, brushSize, brushEffect, getMousePos, playSound, addSparkles, currentUser],
+    [brushColor, brushSize, brushEffect, getEventPos, playSound, addSparkles, currentUser],
   )
 
-  const handleMouseUp = useCallback(() => {
+  const continueDrawing = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      e.preventDefault()
+      const pos = getEventPos(e)
+
+      // Always update cursor position
+      onCursorMove(pos.x, pos.y)
+
+      if (!isDrawing || !currentLine) return
+
+      setCurrentLine((prev) => {
+        if (!prev) return null
+        const updatedLine = {
+          ...prev,
+          points: [...prev.points, pos],
+        }
+
+        // Broadcast drawing update in real-time
+        onDrawingUpdate(updatedLine)
+
+        return updatedLine
+      })
+
+      if (brushEffect === "sparkle" && Math.random() > 0.7) {
+        addSparkles(pos.x, pos.y)
+      }
+    },
+    [isDrawing, currentLine, getEventPos, brushEffect, addSparkles, onCursorMove, onDrawingUpdate],
+  )
+
+  const stopDrawing = useCallback(() => {
     if (currentLine && currentLine.points.length > 0) {
-      setLines((prev) => [...prev, currentLine])
+      setLocalLines((prev) => [...prev, currentLine])
+      // Send final line to other users
+      onDrawingUpdate(currentLine)
     }
     setCurrentLine(null)
     setIsDrawing(false)
-  }, [currentLine])
+  }, [currentLine, onDrawingUpdate])
 
   const clearCanvas = useCallback(() => {
-    setLines([])
+    setLocalLines([])
     setCurrentLine(null)
     setSparkles([])
     playSound("clear")
   }, [playSound])
 
   const undoLast = useCallback(() => {
-    setLines((prev) => prev.slice(0, -1))
+    setLocalLines((prev) => prev.slice(0, -1))
     playSound("undo")
   }, [playSound])
 
@@ -314,11 +352,16 @@ export default function DrawingCanvas({ roomId, userCursors, onCursorMove, curre
         ref={canvasRef}
         width={canvasSize.width}
         height={canvasSize.height}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        className="cursor-crosshair bg-white"
+        // Mouse events
+        onMouseDown={startDrawing}
+        onMouseMove={continueDrawing}
+        onMouseUp={stopDrawing}
+        onMouseLeave={stopDrawing}
+        // Touch events for mobile
+        onTouchStart={startDrawing}
+        onTouchMove={continueDrawing}
+        onTouchEnd={stopDrawing}
+        className="cursor-crosshair bg-white touch-none"
         style={{ display: "block" }}
       />
 

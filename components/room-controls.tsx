@@ -63,32 +63,32 @@ export default function RoomControls() {
 
   return (
     <>
-      {/* Floating Action Button */}
+      {/* Mobile-friendly floating button */}
       <div className="fixed bottom-6 right-6 z-50">
         <Button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-14 h-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg"
+          className="w-16 h-16 md:w-14 md:h-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg touch-manipulation"
         >
           <Palette className="w-6 h-6" />
         </Button>
       </div>
 
-      {/* Controls Panel */}
+      {/* Controls Panel - Mobile optimized */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-6 w-80 z-40 border border-gray-200">
-          <div className="space-y-6">
+        <div className="fixed bottom-24 right-6 bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-6 w-72 md:w-80 z-40 border border-gray-200 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-4 md:space-y-6">
             {/* Colors */}
             <div>
               <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                 <Palette className="w-4 h-4" />
                 Colors
               </h3>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-3">
                 {colors.map((color) => (
                   <button
                     key={color}
                     onClick={() => handleColorChange(color)}
-                    className={`w-8 h-8 rounded-full border-2 transition-all duration-200 hover:scale-110 ${
+                    className={`w-10 h-10 md:w-8 md:h-8 rounded-full border-2 transition-all duration-200 hover:scale-110 touch-manipulation ${
                       selectedColor === color ? "border-gray-800 scale-110" : "border-gray-300"
                     }`}
                     style={{ backgroundColor: color }}
@@ -105,7 +105,7 @@ export default function RoomControls() {
                   variant={brushEffect === "normal" ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleBrushEffectChange("normal")}
-                  className="flex-1"
+                  className="flex-1 touch-manipulation"
                 >
                   <Brush className="w-4 h-4 mr-1" />
                   Normal
@@ -114,7 +114,7 @@ export default function RoomControls() {
                   variant={brushEffect === "sparkle" ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleBrushEffectChange("sparkle")}
-                  className="flex-1"
+                  className="flex-1 touch-manipulation"
                 >
                   <Sparkles className="w-4 h-4 mr-1" />
                   Sparkle
@@ -123,7 +123,7 @@ export default function RoomControls() {
                   variant={brushEffect === "rainbow" ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleBrushEffectChange("rainbow")}
-                  className="flex-1"
+                  className="flex-1 touch-manipulation"
                 >
                   🌈 Rainbow
                 </Button>
@@ -139,21 +139,21 @@ export default function RoomControls() {
                 max={50}
                 min={1}
                 step={1}
-                className="w-full"
+                className="w-full touch-manipulation"
               />
             </div>
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleUndo} className="flex-1">
+              <Button variant="outline" size="sm" onClick={handleUndo} className="flex-1 touch-manipulation">
                 <Undo className="w-4 h-4 mr-1" />
                 Undo
               </Button>
-              <Button variant="outline" size="sm" onClick={handleClear} className="flex-1">
+              <Button variant="outline" size="sm" onClick={handleClear} className="flex-1 touch-manipulation">
                 <Eraser className="w-4 h-4 mr-1" />
                 Clear
               </Button>
-              <Button variant="outline" size="sm" onClick={toggleSound} className="px-3">
+              <Button variant="outline" size="sm" onClick={toggleSound} className="px-3 touch-manipulation">
                 {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </Button>
             </div>
