@@ -4,7 +4,7 @@ import { createRoomContext } from "@liveblocks/react"
 // Create Liveblocks client
 const client = createClient({
   // Use public key for demo - in production, use your own Liveblocks key
-  publicApiKey: "pk_dev_example_key_replace_with_your_own",
+  publicApiKey: "pk_dev_sgWWMObyHy2EZPvjgRRSTvZVH73c0xEXIp0bwAdIRrMBFKxe-12QXikMPIlJK9Rs",
 
   // For demo purposes, we'll use a mock authentication
   // In production, you'd implement proper authentication
