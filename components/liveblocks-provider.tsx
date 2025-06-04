@@ -2,8 +2,6 @@
 
 import type { ReactNode } from "react"
 import { RoomProvider } from "@/lib/liveblocks"
-import { ClientSideSuspense } from "@liveblocks/react"
-import LoadingScreen from "./loading-screen"
 
 interface LiveblocksProviderProps {
   children: ReactNode
@@ -26,7 +24,7 @@ export default function LiveblocksProvider({ children, roomId, userInfo }: Liveb
         emojiReactions: [],
       }}
     >
-      <ClientSideSuspense fallback={<LoadingScreen roomId={roomId} />}>{children}</ClientSideSuspense>
+      <div className="h-screen">{children}</div>
     </RoomProvider>
   )
 }

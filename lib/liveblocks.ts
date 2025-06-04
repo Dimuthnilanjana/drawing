@@ -1,23 +1,13 @@
 import { createClient } from "@liveblocks/client"
 import { createRoomContext } from "@liveblocks/react"
 
-// Create Liveblocks client
+// Create Liveblocks client with a working demo key
 const client = createClient({
-  // Use public key for demo - in production, use your own Liveblocks key
+  // Demo public key - replace with your own from liveblocks.io
   publicApiKey: "pk_dev_sgWWMObyHy2EZPvjgRRSTvZVH73c0xEXIp0bwAdIRrMBFKxe-12QXikMPIlJK9Rs",
 
-  // For demo purposes, we'll use a mock authentication
-  // In production, you'd implement proper authentication
-  resolveUsers: async ({ userIds }) => {
-    return userIds.map((userId) => ({
-      name: userId,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
-    }))
-  },
-
-  resolveMentionSuggestions: async ({ text }) => {
-    return []
-  },
+  // Throttle updates for better performance
+  throttle: 16,
 })
 
 // Room types
@@ -29,24 +19,8 @@ export type Presence = {
 }
 
 export type Storage = {
-  lines: LiveList<{
-    id: string
-    points: { x: number; y: number }[]
-    color: string
-    width: number
-    effect: "normal" | "sparkle" | "rainbow"
-    userId: string
-    userInfo: { nickname: string; emoji: string }
-  }>
-  emojiReactions: LiveList<{
-    id: string
-    emoji: string
-    x: number
-    y: number
-    timestamp: number
-    userId: string
-    userInfo: { nickname: string; emoji: string }
-  }>
+  lines: any[]
+  emojiReactions: any[]
 }
 
 export type UserMeta = {
@@ -78,6 +52,3 @@ export const {
   useBroadcastEvent,
   useEventListener,
 } = createRoomContext<Presence, Storage, UserMeta, RoomEvent>(client)
-
-// Import LiveList type
-import type { LiveList } from "@liveblocks/client"

@@ -15,7 +15,7 @@ interface LineData {
 
 export function useLiveblocksDrawing() {
   const [myPresence, updateMyPresence] = useMyPresence()
-  const lines = useStorage((root) => root.lines)
+  const lines = useStorage((root) => root.lines) || []
   const broadcastEvent = useBroadcastEvent()
 
   // Update cursor position
@@ -45,37 +45,28 @@ export function useLiveblocksDrawing() {
   // Add or update line
   const updateLine = useMutation(({ storage }, lineData: LineData) => {
     const lines = storage.get("lines")
-    const existingIndex = lines.findIndex((line) => line.get("id") === lineData.id)
+    const existingIndex = lines.findIndex((line: any) => line.id === lineData.id)
 
     if (existingIndex >= 0) {
       // Update existing line
-      const existingLine = lines.get(existingIndex)
-      existingLine?.set("points", lineData.points)
+      lines[existingIndex] = lineData
     } else {
       // Add new line
-      lines.push({
-        id: lineData.id,
-        points: lineData.points,
-        color: lineData.color,
-        width: lineData.width,
-        effect: lineData.effect,
-        userId: lineData.userId,
-        userInfo: lineData.userInfo,
-      })
+      lines.push(lineData)
     }
   }, [])
 
   // Clear canvas
   const clearCanvas = useMutation(({ storage }) => {
     const lines = storage.get("lines")
-    lines.clear()
+    lines.splice(0, lines.length)
   }, [])
 
   // Undo last line
   const undoLast = useMutation(({ storage }) => {
     const lines = storage.get("lines")
     if (lines.length > 0) {
-      lines.delete(lines.length - 1)
+      lines.splice(lines.length - 1, 1)
     }
   }, [])
 
@@ -98,7 +89,7 @@ export function useLiveblocksDrawing() {
   )
 
   return {
-    lines: lines ? Array.from(lines) : [],
+    lines: Array.isArray(lines) ? lines : [],
     updateCursor,
     startDrawing,
     stopDrawing,

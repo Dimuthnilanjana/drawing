@@ -101,11 +101,11 @@ export default function DrawingCanvasLiveblocks() {
 
     // Draw all lines
     allLines.forEach((line) => {
-      if (line.points.length < 2) return
+      if (!line.points || line.points.length < 2) return
 
       ctx.beginPath()
-      ctx.strokeStyle = line.color
-      ctx.lineWidth = line.width
+      ctx.strokeStyle = line.color || "#000000"
+      ctx.lineWidth = line.width || 5
       ctx.lineCap = "round"
       ctx.lineJoin = "round"
 
