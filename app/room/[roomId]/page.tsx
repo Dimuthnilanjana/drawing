@@ -8,6 +8,7 @@ import EmojiReactions from "@/components/emoji-reactions"
 import LoadingScreen from "@/components/loading-screen"
 import OnlineUsers from "@/components/online-users"
 import NicknameModal from "@/components/nickname-modal"
+import ConnectionStatus from "@/components/connection-status"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Copy, Check } from "lucide-react"
 import { useRealTimeRoom } from "@/hooks/use-realtime-room"
@@ -31,8 +32,18 @@ export default function RoomPage() {
   const [showNicknameModal, setShowNicknameModal] = useState(true)
   const [userInfo, setUserInfo] = useState<{ nickname: string; emoji: string } | null>(null)
 
-  const { connectedUsers, userCursors, remoteLines, joinRoom, leaveRoom, broadcastCursor, broadcastDrawing } =
-    useRealTimeRoom(roomId)
+  const {
+    connectedUsers,
+    userCursors,
+    remoteLines,
+    connectionStatus,
+    joinRoom,
+    leaveRoom,
+    broadcastCursor,
+    broadcastDrawing,
+    broadcastEmojiReaction,
+    clearCanvas,
+  } = useRealTimeRoom(roomId)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -71,6 +82,18 @@ export default function RoomPage() {
     broadcastDrawing(lineData)
   }
 
+  const handleEmojiReaction = (emoji: string, x: number, y: number) => {
+    broadcastEmojiReaction(emoji, x, y)
+  }
+
+  const handleClearCanvas = () => {
+    clearCanvas()
+    // Also clear local canvas
+    if (window.drawingCanvasControls) {
+      window.drawingCanvasControls.clearCanvas()
+    }
+  }
+
   if (isLoading) {
     return <LoadingScreen roomId={roomId} />
   }
@@ -90,7 +113,7 @@ export default function RoomPage() {
           </Button>
 
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+            <ConnectionStatus status={connectionStatus} />
             <span className="font-semibold text-gray-800">Room {roomId}</span>
           </div>
         </div>
@@ -124,8 +147,8 @@ export default function RoomPage() {
           currentUser={userInfo}
           remoteLines={remoteLines}
         />
-        <EmojiReactions />
-        <RoomControls />
+        <EmojiReactions onEmojiReaction={handleEmojiReaction} />
+        <RoomControls onClearCanvas={handleClearCanvas} />
       </div>
     </div>
   )

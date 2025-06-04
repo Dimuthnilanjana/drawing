@@ -13,12 +13,29 @@ interface FloatingEmoji {
   scale: number
 }
 
+interface EmojiReactionsProps {
+  onEmojiReaction: (emoji: string, x: number, y: number) => void
+}
+
 const emojis = ["😀", "😍", "🎉", "👏", "❤️", "🔥", "✨", "🎨", "🌈", "⭐"]
 
-export default function EmojiReactions() {
+export default function EmojiReactions({ onEmojiReaction }: EmojiReactionsProps) {
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const { playSound } = useSound()
+
+  // Listen for emoji reactions from other users
+  useEffect(() => {
+    const handleEmojiReaction = (event: CustomEvent) => {
+      const { emoji, x, y } = event.detail
+      addFloatingEmoji(emoji, x, y)
+    }
+
+    window.addEventListener("emoji-reaction", handleEmojiReaction as EventListener)
+    return () => {
+      window.removeEventListener("emoji-reaction", handleEmojiReaction as EventListener)
+    }
+  }, [])
 
   // Animation loop for floating emojis
   useEffect(() => {
@@ -39,18 +56,30 @@ export default function EmojiReactions() {
     return () => cancelAnimationFrame(animationId)
   }, [])
 
-  const addFloatingEmoji = (selectedEmoji: string) => {
+  const addFloatingEmoji = (selectedEmoji: string, x?: number, y?: number) => {
     const newEmoji: FloatingEmoji = {
       id: `${Date.now()}-${Math.random()}`,
       emoji: selectedEmoji,
-      x: Math.random() * (window.innerWidth - 100) + 50,
-      y: window.innerHeight - 100,
+      x: x ?? Math.random() * (window.innerWidth - 100) + 50,
+      y: y ?? window.innerHeight - 100,
       opacity: 1,
       scale: 1,
     }
 
     setFloatingEmojis((prev) => [...prev, newEmoji])
     playSound("emoji")
+  }
+
+  const handleEmojiClick = (selectedEmoji: string) => {
+    const x = Math.random() * (window.innerWidth - 100) + 50
+    const y = window.innerHeight - 100
+
+    // Add local emoji
+    addFloatingEmoji(selectedEmoji, x, y)
+
+    // Broadcast to other users
+    onEmojiReaction(selectedEmoji, x, y)
+
     setIsOpen(false)
   }
 
@@ -78,7 +107,7 @@ export default function EmojiReactions() {
       <div className="fixed bottom-6 left-6 z-50">
         <Button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-14 h-14 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 shadow-lg text-2xl"
+          className="w-16 h-16 md:w-14 md:h-14 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 shadow-lg text-2xl touch-manipulation"
         >
           😊
         </Button>
@@ -91,8 +120,8 @@ export default function EmojiReactions() {
             {emojis.map((emoji) => (
               <button
                 key={emoji}
-                onClick={() => addFloatingEmoji(emoji)}
-                className="w-12 h-12 text-2xl hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-110"
+                onClick={() => handleEmojiClick(emoji)}
+                className="w-12 h-12 text-2xl hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-110 touch-manipulation"
               >
                 {emoji}
               </button>

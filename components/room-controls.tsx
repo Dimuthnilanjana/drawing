@@ -19,7 +19,11 @@ const colors = [
   "#FFC0CB",
 ]
 
-export default function RoomControls() {
+interface RoomControlsProps {
+  onClearCanvas: () => void
+}
+
+export default function RoomControls({ onClearCanvas }: RoomControlsProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedColor, setSelectedColor] = useState("#000000")
   const [brushSize, setBrushSize] = useState(5)
@@ -50,9 +54,7 @@ export default function RoomControls() {
   }
 
   const handleClear = () => {
-    if (window.drawingCanvasControls) {
-      window.drawingCanvasControls.clearCanvas()
-    }
+    onClearCanvas()
   }
 
   const handleUndo = () => {
@@ -73,7 +75,7 @@ export default function RoomControls() {
         </Button>
       </div>
 
-      {/* Controls Panel - Mobile optimized */}
+      {/* Controls Panel */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-6 w-72 md:w-80 z-40 border border-gray-200 max-h-[70vh] overflow-y-auto">
           <div className="space-y-4 md:space-y-6">
