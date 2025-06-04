@@ -40,7 +40,7 @@ interface EmojiReaction {
 }
 
 // Use your deployed server URL or localhost for development
-const SERVER_URL = "https://silly-arithmetic-4e444b.netlify.app"
+const SERVER_URL = "https://drawing-collab-server.onrender.com"
 
 export function useRealTimeRoom(roomId: string) {
   const [connectedUsers, setConnectedUsers] = useState<User[]>([])

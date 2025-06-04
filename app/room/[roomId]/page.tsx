@@ -2,26 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import DrawingCanvas from "@/components/drawing-canvas"
-import RoomControls from "@/components/room-controls"
-import EmojiReactions from "@/components/emoji-reactions"
+import DrawingCanvas from "@/components/drawing-canvas-liveblocks"
+import RoomControls from "@/components/room-controls-liveblocks"
+import EmojiReactions from "@/components/emoji-reactions-liveblocks"
 import LoadingScreen from "@/components/loading-screen"
-import OnlineUsers from "@/components/online-users"
+import OnlineUsers from "@/components/online-users-liveblocks"
 import NicknameModal from "@/components/nickname-modal"
-import ConnectionStatus from "@/components/connection-status"
+import LiveblocksProvider from "@/components/liveblocks-provider"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Copy, Check } from "lucide-react"
-import { useRealTimeRoom } from "@/hooks/use-realtime-room"
-
-interface LineData {
-  id: string
-  points: { x: number; y: number }[]
-  color: string
-  width: number
-  effect?: "sparkle" | "rainbow" | "normal"
-  userId?: string
-  userInfo?: { nickname: string; emoji: string }
-}
+import { ArrowLeft, Copy, Check, Wifi } from "lucide-react"
 
 export default function RoomPage() {
   const params = useParams()
@@ -31,19 +20,6 @@ export default function RoomPage() {
   const [copied, setCopied] = useState(false)
   const [showNicknameModal, setShowNicknameModal] = useState(true)
   const [userInfo, setUserInfo] = useState<{ nickname: string; emoji: string } | null>(null)
-
-  const {
-    connectedUsers,
-    userCursors,
-    remoteLines,
-    connectionStatus,
-    joinRoom,
-    leaveRoom,
-    broadcastCursor,
-    broadcastDrawing,
-    broadcastEmojiReaction,
-    clearCanvas,
-  } = useRealTimeRoom(roomId)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -57,7 +33,6 @@ export default function RoomPage() {
     const newUserInfo = { nickname, emoji }
     setUserInfo(newUserInfo)
     setShowNicknameModal(false)
-    joinRoom(newUserInfo)
   }
 
   const copyRoomLink = async () => {
@@ -68,30 +43,7 @@ export default function RoomPage() {
   }
 
   const handleLeaveRoom = () => {
-    leaveRoom()
     router.push("/")
-  }
-
-  const handleCursorMove = (x: number, y: number) => {
-    if (userInfo) {
-      broadcastCursor(x, y, userInfo)
-    }
-  }
-
-  const handleDrawingUpdate = (lineData: LineData) => {
-    broadcastDrawing(lineData)
-  }
-
-  const handleEmojiReaction = (emoji: string, x: number, y: number) => {
-    broadcastEmojiReaction(emoji, x, y)
-  }
-
-  const handleClearCanvas = () => {
-    clearCanvas()
-    // Also clear local canvas
-    if (window.drawingCanvasControls) {
-      window.drawingCanvasControls.clearCanvas()
-    }
   }
 
   if (isLoading) {
@@ -102,54 +54,57 @@ export default function RoomPage() {
     return <NicknameModal onSubmit={handleNicknameSubmit} roomId={roomId} />
   }
 
-  return (
-    <div className="h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={handleLeaveRoom} className="text-gray-600 hover:text-gray-800">
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Leave
-          </Button>
+  if (!userInfo) {
+    return <LoadingScreen roomId={roomId} />
+  }
 
-          <div className="flex items-center gap-2">
-            <ConnectionStatus status={connectionStatus} />
-            <span className="font-semibold text-gray-800">Room {roomId}</span>
+  return (
+    <LiveblocksProvider roomId={roomId} userInfo={userInfo}>
+      <div className="h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
+        {/* Header */}
+        <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={handleLeaveRoom} className="text-gray-600 hover:text-gray-800">
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Leave
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+              <span className="font-semibold text-gray-800">Room {roomId}</span>
+              <div className="flex items-center gap-1 text-xs text-green-600">
+                <Wifi className="w-3 h-3" />
+                <span>Liveblocks</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <OnlineUsers />
+
+            <Button variant="outline" size="sm" onClick={copyRoomLink} className="text-xs">
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3 mr-1" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3 mr-1" />
+                  Share
+                </>
+              )}
+            </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <OnlineUsers users={connectedUsers} currentUser={userInfo} />
-
-          <Button variant="outline" size="sm" onClick={copyRoomLink} className="text-xs">
-            {copied ? (
-              <>
-                <Check className="w-3 h-3 mr-1" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="w-3 h-3 mr-1" />
-                Share
-              </>
-            )}
-          </Button>
+        {/* Main Content */}
+        <div className="flex-1 relative overflow-hidden">
+          <DrawingCanvas />
+          <EmojiReactions />
+          <RoomControls />
         </div>
       </div>
-
-      {/* Main Content */}
-      <div className="flex-1 relative overflow-hidden">
-        <DrawingCanvas
-          roomId={roomId}
-          userCursors={userCursors}
-          onCursorMove={handleCursorMove}
-          onDrawingUpdate={handleDrawingUpdate}
-          currentUser={userInfo}
-          remoteLines={remoteLines}
-        />
-        <EmojiReactions onEmojiReaction={handleEmojiReaction} />
-        <RoomControls onClearCanvas={handleClearCanvas} />
-      </div>
-    </div>
+    </LiveblocksProvider>
   )
 }
