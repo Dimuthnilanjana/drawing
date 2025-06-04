@@ -1,12 +1,14 @@
 "use client"
 
 import type React from "react"
-
 import { useRef, useEffect, useState, useCallback } from "react"
 import { useSound } from "@/hooks/use-sound"
 
 interface DrawingCanvasProps {
   roomId: string
+  userCursors: UserCursor[]
+  onCursorMove: (x: number, y: number) => void
+  currentUser: { nickname: string; emoji: string } | null
 }
 
 interface Point {
@@ -20,6 +22,8 @@ interface LineData {
   color: string
   width: number
   effect?: "sparkle" | "rainbow" | "normal"
+  userId?: string
+  userInfo?: { nickname: string; emoji: string }
 }
 
 interface Sparkle {
@@ -31,7 +35,16 @@ interface Sparkle {
   createdAt: number
 }
 
-export default function DrawingCanvas({ roomId }: DrawingCanvasProps) {
+interface UserCursor {
+  id: string
+  x: number
+  y: number
+  nickname: string
+  emoji: string
+  lastSeen: number
+}
+
+export default function DrawingCanvas({ roomId, userCursors, onCursorMove, currentUser }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [lines, setLines] = useState<LineData[]>([])
@@ -41,6 +54,7 @@ export default function DrawingCanvas({ roomId }: DrawingCanvasProps) {
   const [brushSize, setBrushSize] = useState(5)
   const [brushEffect, setBrushEffect] = useState<"normal" | "sparkle" | "rainbow">("normal")
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const { playSound } = useSound()
 
   // Handle window resize
@@ -57,7 +71,7 @@ export default function DrawingCanvas({ roomId }: DrawingCanvasProps) {
     return () => window.removeEventListener("resize", updateCanvasSize)
   }, [])
 
-  // Animation frame for sparkles
+  // Animation frame for sparkles and cursor updates
   useEffect(() => {
     let animationId: number
 
@@ -140,7 +154,50 @@ export default function DrawingCanvas({ roomId }: DrawingCanvasProps) {
       ctx.fill()
       ctx.restore()
     })
-  }, [lines, currentLine, sparkles])
+
+    // Draw user cursors
+    const now = Date.now()
+    userCursors.forEach((cursor) => {
+      // Only show cursors that are recent (within 5 seconds)
+      if (now - cursor.lastSeen < 5000) {
+        drawUserCursor(ctx, cursor)
+      }
+    })
+  }, [lines, currentLine, sparkles, userCursors])
+
+  const drawUserCursor = (ctx: CanvasRenderingContext2D, cursor: UserCursor) => {
+    ctx.save()
+
+    // Draw cursor pointer
+    ctx.fillStyle = "#4F46E5"
+    ctx.beginPath()
+    ctx.moveTo(cursor.x, cursor.y)
+    ctx.lineTo(cursor.x + 12, cursor.y + 4)
+    ctx.lineTo(cursor.x + 5, cursor.y + 12)
+    ctx.closePath()
+    ctx.fill()
+
+    // Draw white outline
+    ctx.strokeStyle = "white"
+    ctx.lineWidth = 2
+    ctx.stroke()
+
+    // Draw user info bubble
+    const text = `${cursor.emoji} ${cursor.nickname}`
+    ctx.font = "12px Inter, sans-serif"
+    const textWidth = ctx.measureText(text).width
+
+    // Background bubble
+    ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
+    ctx.roundRect(cursor.x + 15, cursor.y - 25, textWidth + 12, 20, 10)
+    ctx.fill()
+
+    // Text
+    ctx.fillStyle = "white"
+    ctx.fillText(text, cursor.x + 21, cursor.y - 10)
+
+    ctx.restore()
+  }
 
   // Redraw when data changes
   useEffect(() => {
@@ -170,34 +227,15 @@ export default function DrawingCanvas({ roomId }: DrawingCanvasProps) {
     setSparkles((prev) => [...prev, ...newSparkles])
   }, [])
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const pos = getMousePos(e)
-      setIsDrawing(true)
-
-      const newLine: LineData = {
-        id: `${Date.now()}`,
-        points: [pos],
-        color: brushColor,
-        width: brushSize,
-        effect: brushEffect,
-      }
-
-      setCurrentLine(newLine)
-      playSound("draw")
-
-      if (brushEffect === "sparkle") {
-        addSparkles(pos.x, pos.y)
-      }
-    },
-    [brushColor, brushSize, brushEffect, getMousePos, playSound, addSparkles],
-  )
-
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!isDrawing || !currentLine) return
-
       const pos = getMousePos(e)
+      setMousePos(pos)
+
+      // Broadcast cursor position
+      onCursorMove(pos.x, pos.y)
+
+      if (!isDrawing || !currentLine) return
 
       setCurrentLine((prev) => {
         if (!prev) return null
@@ -211,7 +249,32 @@ export default function DrawingCanvas({ roomId }: DrawingCanvasProps) {
         addSparkles(pos.x, pos.y)
       }
     },
-    [isDrawing, currentLine, getMousePos, brushEffect, addSparkles],
+    [isDrawing, currentLine, getMousePos, brushEffect, addSparkles, onCursorMove],
+  )
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const pos = getMousePos(e)
+      setIsDrawing(true)
+
+      const newLine: LineData = {
+        id: `${Date.now()}`,
+        points: [pos],
+        color: brushColor,
+        width: brushSize,
+        effect: brushEffect,
+        userId: "current-user",
+        userInfo: currentUser || undefined,
+      }
+
+      setCurrentLine(newLine)
+      playSound("draw")
+
+      if (brushEffect === "sparkle") {
+        addSparkles(pos.x, pos.y)
+      }
+    },
+    [brushColor, brushSize, brushEffect, getMousePos, playSound, addSparkles, currentUser],
   )
 
   const handleMouseUp = useCallback(() => {
@@ -278,6 +341,16 @@ export default function DrawingCanvas({ roomId }: DrawingCanvasProps) {
           </div>
         </div>
       </div>
+
+      {/* Current user info */}
+      {currentUser && (
+        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-lg">{currentUser.emoji}</span>
+            <span className="font-semibold">{currentUser.nickname}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

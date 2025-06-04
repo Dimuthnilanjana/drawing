@@ -6,8 +6,11 @@ import DrawingCanvas from "@/components/drawing-canvas"
 import RoomControls from "@/components/room-controls"
 import EmojiReactions from "@/components/emoji-reactions"
 import LoadingScreen from "@/components/loading-screen"
+import OnlineUsers from "@/components/online-users"
+import NicknameModal from "@/components/nickname-modal"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Users, Copy, Check } from "lucide-react"
+import { ArrowLeft, Copy, Check } from "lucide-react"
+import { useRoomManager } from "@/hooks/use-room-manager"
 
 export default function RoomPage() {
   const params = useParams()
@@ -15,7 +18,10 @@ export default function RoomPage() {
   const roomId = params.roomId as string
   const [isLoading, setIsLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [connectedUsers] = useState(1) // In real app, this would come from socket
+  const [showNicknameModal, setShowNicknameModal] = useState(true)
+  const [userInfo, setUserInfo] = useState<{ nickname: string; emoji: string } | null>(null)
+
+  const { connectedUsers, userCursors, joinRoom, leaveRoom, updateUserInfo, broadcastCursor } = useRoomManager(roomId)
 
   useEffect(() => {
     // Simulate joining room
@@ -26,6 +32,16 @@ export default function RoomPage() {
     return () => clearTimeout(timer)
   }, [])
 
+  const handleNicknameSubmit = (nickname: string, emoji: string) => {
+    const newUserInfo = { nickname, emoji }
+    setUserInfo(newUserInfo)
+    setShowNicknameModal(false)
+
+    // Join room with user info
+    joinRoom(newUserInfo)
+    updateUserInfo(newUserInfo)
+  }
+
   const copyRoomLink = async () => {
     const url = `${window.location.origin}/room/${roomId}`
     await navigator.clipboard.writeText(url)
@@ -33,8 +49,17 @@ export default function RoomPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleLeaveRoom = () => {
+    leaveRoom()
+    router.push("/")
+  }
+
   if (isLoading) {
     return <LoadingScreen roomId={roomId} />
+  }
+
+  if (showNicknameModal) {
+    return <NicknameModal onSubmit={handleNicknameSubmit} roomId={roomId} />
   }
 
   return (
@@ -42,12 +67,7 @@ export default function RoomPage() {
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/")}
-            className="text-gray-600 hover:text-gray-800"
-          >
+          <Button variant="ghost" size="sm" onClick={handleLeaveRoom} className="text-gray-600 hover:text-gray-800">
             <ArrowLeft className="w-4 h-4 mr-1" />
             Leave
           </Button>
@@ -59,10 +79,7 @@ export default function RoomPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Users className="w-4 h-4" />
-            <span>{connectedUsers} online</span>
-          </div>
+          <OnlineUsers users={connectedUsers} currentUser={userInfo} />
 
           <Button variant="outline" size="sm" onClick={copyRoomLink} className="text-xs">
             {copied ? (
@@ -82,7 +99,12 @@ export default function RoomPage() {
 
       {/* Main Content */}
       <div className="flex-1 relative overflow-hidden">
-        <DrawingCanvas roomId={roomId} />
+        <DrawingCanvas
+          roomId={roomId}
+          userCursors={userCursors}
+          onCursorMove={broadcastCursor}
+          currentUser={userInfo}
+        />
         <EmojiReactions />
         <RoomControls />
       </div>
