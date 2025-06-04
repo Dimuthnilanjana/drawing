@@ -9,28 +9,28 @@ export function useLiveblocksUsers() {
   // Get all connected users
   const connectedUsers = others.map((user) => ({
     id: user.connectionId.toString(),
-    nickname: user.presence.nickname,
-    emoji: user.presence.emoji,
-    isDrawing: user.presence.isDrawing,
+    nickname: user.presence?.nickname || "Anonymous",
+    emoji: user.presence?.emoji || "🐶",
+    isDrawing: user.presence?.isDrawing || false,
     lastSeen: Date.now(),
   }))
 
   // Get user cursors
   const userCursors = others
-    .filter((user) => user.presence.cursor)
+    .filter((user) => user.presence?.cursor)
     .map((user) => ({
       id: user.connectionId.toString(),
       x: user.presence.cursor!.x,
       y: user.presence.cursor!.y,
-      nickname: user.presence.nickname,
-      emoji: user.presence.emoji,
+      nickname: user.presence?.nickname || "Anonymous",
+      emoji: user.presence?.emoji || "🐶",
       lastSeen: Date.now(),
     }))
 
   // Current user info
   const currentUser = {
-    nickname: myPresence.nickname,
-    emoji: myPresence.emoji,
+    nickname: myPresence?.nickname || "You",
+    emoji: myPresence?.emoji || "🐶",
   }
 
   return {
